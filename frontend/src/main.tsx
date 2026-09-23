@@ -45,6 +45,21 @@ function App() {
     }, document.getElementById('diff-result'))
   }
 
+  async function analyzeImpact(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const data = new FormData(event.currentTarget)
+    const output = document.getElementById('impact-result')
+    try {
+      await submit(`${API}/impact`, {
+        services: String(data.get('services')).split(',').map(value => value.trim()).filter(Boolean),
+        changed_services: String(data.get('changed-services')).split(',').map(value => value.trim()).filter(Boolean),
+        dependencies: JSON.parse(String(data.get('dependencies'))),
+      }, output)
+    } catch {
+      if (output) output.textContent = 'Dependencies must be valid JSON, for example [{"source":"api","target":"database"}].'
+    }
+  }
+
   return <main className="shell">
     <aside className="rail"><div className="mark">C</div><div className="rail-icon active">?</div><div className="rail-icon">?</div><div className="rail-icon">?</div><div className="rail-bottom">?</div></aside>
     <section className="page">

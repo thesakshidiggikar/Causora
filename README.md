@@ -23,7 +23,7 @@ Content-Type: application/json
 {"changes":[{"service":"billing","key":"DB_POOL_SIZE","before":20,"after":60}]}
 ```
 
-The response includes rule findings, evidence, affected services, recommendations, assumptions, and severity. The dashboard can also compare YAML or JSON documents at `/api/v1/config-diffs`; nested changes are flattened to stable key paths and secret-like values are redacted from returned diffs. The analyzer does not claim probabilistic failure prediction.
+The response includes rule findings, evidence, affected services, recommendations, assumptions, and severity. The dashboard can also compare YAML or JSON documents at `/api/v1/config-diffs`; nested changes are flattened to stable key paths and secret-like values are redacted from returned diffs. `/api/v1/impact` traces downstream reachability through a caller-supplied service dependency graph. The analyzer does not claim probabilistic failure prediction.
 
 ## Security and credentials
 

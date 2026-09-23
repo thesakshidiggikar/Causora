@@ -4,7 +4,7 @@
 - Ingestion: bounded YAML/JSON parsing, nested-key diff, safe secret redaction. (initial slice implemented)
 - Next: environment manifest parsing, immutable snapshots, provenance, and persistence.
 - Schema: configuration contracts, provenance, versioned storage and migrations.
-- Graph: services, resources, config references, dependency edges and confidence.
+- Graph: operator-supplied service nodes and directed dependency traversal are implemented as an in-memory request; persistent graph model, config/resource nodes, provenance and confidence remain future work.
 - Discovery: manifest and repository import with explicit trust boundaries.
 - Interactions: deterministic cross-setting rules and evidence.
 - Causality and propagation: bounded graph traversal and explainable paths.

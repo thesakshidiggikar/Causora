@@ -69,3 +69,35 @@ def test_invalid_yaml_is_rejected_without_parser_details() -> None:
     )
     assert response.status_code == 422
     assert response.json()["detail"] == "Configuration document is invalid."
+
+
+def test_dependency_impact_returns_shortest_paths_through_cycles() -> None:
+    response = client.post(
+        "/api/v1/impact",
+        json={
+            "services": ["api", "auth", "database", "queue"],
+            "changed_services": ["api"],
+            "dependencies": [
+                {"source": "api", "target": "auth"},
+                {"source": "auth", "target": "database"},
+                {"source": "database", "target": "api"},
+                {"source": "api", "target": "queue"},
+                {"source": "auth", "target": "queue"},
+            ],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body["impacted_services"]) == {"auth", "database", "queue"}
+    paths = {item["service"]: item["path"] for item in body["paths"]}
+    assert paths["queue"] == ["api", "queue"]
+    assert paths["database"] == ["api", "auth", "database"]
+    assert body["mode"] == "bounded_breadth_first_traversal"
+
+
+def test_dependency_impact_rejects_unknown_changed_service() -> None:
+    response = client.post(
+        "/api/v1/impact",
+        json={"services": ["api"], "changed_services": ["missing"], "dependencies": []},
+    )
+    assert response.status_code == 422
