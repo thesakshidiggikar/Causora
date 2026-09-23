@@ -1,6 +1,6 @@
 # Causora
 
-Causora is an explainable platform foundation for reviewing configuration changes and identifying plausible operational risks before rollout. The repository currently contains a stateless API and deterministic starter rules; it is an MVP foundation, not yet a production failure prediction system.
+Causora is an explainable platform foundation for reviewing configuration changes and identifying plausible operational risks before rollout. The repository currently contains a stateless API, bounded YAML/JSON diff ingestion, and deterministic starter rules; it is an MVP foundation, not yet a production failure prediction system.
 
 ## Quick start
 
@@ -23,7 +23,7 @@ Content-Type: application/json
 {"changes":[{"service":"billing","key":"DB_POOL_SIZE","before":20,"after":60}]}
 ```
 
-The response includes rule findings, evidence, affected services, recommendations, assumptions, and severity. It does not claim probabilistic failure prediction.
+The response includes rule findings, evidence, affected services, recommendations, assumptions, and severity. The dashboard can also compare YAML or JSON documents at `/api/v1/config-diffs`; nested changes are flattened to stable key paths and secret-like values are redacted from returned diffs. The analyzer does not claim probabilistic failure prediction.
 
 ## Security and credentials
 
