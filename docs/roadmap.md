@@ -1,18 +1,16 @@
 # Delivery roadmap
 
-- Foundation: conventions, typed API, local run path, health checks, CI, deterministic starter analyzer. (implemented)
-- Ingestion: bounded YAML/JSON parsing, nested-key diff, safe secret redaction. (initial slice implemented)
-- Next: environment manifest parsing, immutable snapshots, provenance, and persistence.
-- Schema: configuration contracts, provenance, versioned storage and migrations.
-- Graph: operator-supplied service nodes and directed dependency traversal are implemented as an in-memory request; persistent graph model, config/resource nodes, provenance and confidence remain future work.
-- Discovery: manifest and repository import with explicit trust boundaries.
-- Interactions: deterministic cross-setting rules and evidence.
-- Causality and propagation: bounded graph traversal and explainable paths.
-- Impact and simulation: scenario comparison and blast-radius summaries.
-- Risk: evidence-linked categories first; calibrated probabilities only after sufficient outcomes.
-- Remediation: safe options, trade-offs, human approval; no autonomous production writes.
-- Runtime learning: telemetry and deployment outcomes.
-- Security and observability: tenant isolation, RBAC, audit, metrics, tracing, scanning.
-- Production: deployment architecture, disaster recovery, rollout and rollback.
+- Engineering foundation, API versioning, local run path, CI and deterministic rule analyzer: implemented.
+- YAML/JSON parsing, bounded nested-key diffs and secret redaction: implemented.
+- PostgreSQL/SQLite persistence, Alembic migration, tenant registration/login, owner-scoped workspace, immutable redacted snapshots, saved diff runs, dependency storage and audit events: initial MVP implemented.
+- Dependency impact: bounded shortest-path traversal and one-off/persisted edge input implemented; discovery, graph provenance and edge confidence remain.
+- Security: Argon2id password hashing, signed expiring bearer tokens, tenant scoping and keyed fingerprints implemented. Invitations, email verification, password reset, rate limits, full RBAC, row-level security and production review remain.
+- Interaction engine and cross-setting constraints: remaining.
+- Causal propagation and scenario simulation: structural reachability exists; causal evidence model and simulation remain.
+- Risk: explainable rule severity exists; calibrated probability and historical outcome learning remain.
+- Remediation: human-reviewed proposals remain; no automatic production writes.
+- Runtime learning: telemetry and deployment feedback remain.
+- Observability: health checks exist; structured logging, metrics, tracing, dashboards and alerts remain.
+- Production: PostgreSQL Compose path exists; AWS/Kubernetes hardening, backups, disaster recovery, scanning, rollout and rollback remain.
 
-This repository is at the foundation slice. The roadmap is not a claim that later capabilities already exist.
+The current implementation is a usable local MVP, not a claim that every roadmap capability is complete.

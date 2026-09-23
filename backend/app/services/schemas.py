@@ -23,6 +23,13 @@ class AnalysisRequest(BaseModel):
     context: dict[str, Any] = Field(default_factory=dict)
 
 
+class RemediationOption(BaseModel):
+    title: str
+    expected_effect: str
+    trade_off: str
+    requires_approval: bool = True
+
+
 class Finding(BaseModel):
     code: str
     title: str
@@ -30,6 +37,7 @@ class Finding(BaseModel):
     evidence: list[str]
     affected_services: list[str] = Field(default_factory=list)
     recommendation: str
+    remediation_options: list[RemediationOption] = Field(default_factory=list)
 
 
 class AnalysisResponse(BaseModel):

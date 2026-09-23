@@ -1,4 +1,18 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: causora
+      POSTGRES_USER: causora
+      # Development-only password. Override through .env for shared environments.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-causora-local-only}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U causora -d causora"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
   api:
     build:
       context: ./backend
@@ -6,7 +20,13 @@ services:
       - "8000:8000"
     environment:
       CAUSORA_ENVIRONMENT: development
-      CAUSORA_LOG_LEVEL: INFO
+      CAUSORA_DATABASE_URL: postgresql+psycopg://causora:${POSTGRES_PASSWORD:-causora-local-only}@postgres:5432/causora
+      CAUSORA_JWT_SECRET: ${CAUSORA_JWT_SECRET:-}
+      CAUSORA_REDACTION_SECRET: ${CAUSORA_REDACTION_SECRET:-}
+      CAUSORA_ALLOWED_ORIGINS: "${CAUSORA_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}"
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
       interval: 15s
@@ -17,8 +37,10 @@ services:
     working_dir: /app
     volumes:
       - ./frontend:/app
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
     ports:
       - "5173:5173"
     depends_on:
       - api
+volumes:
+  postgres_data:
