@@ -101,3 +101,181 @@ def test_dependency_impact_rejects_unknown_changed_service() -> None:
         json={"services": ["api"], "changed_services": ["missing"], "dependencies": []},
     )
     assert response.status_code == 422
+
+
+def test_registration_login_workspace_snapshots_and_tenant_isolation() -> None:
+    from fastapi.testclient import TestClient
+
+    client = TestClient(app)
+    registration = client.post(
+        "/api/v1/auth/register",
+        json={
+            "organization_name": "Northstar",
+            "email": "owner@example.com",
+            "password": "correct horse battery staple",
+        },
+    )
+    assert registration.status_code == 201
+    token = registration.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "OWNER@example.com", "password": "correct horse battery staple"},
+    )
+    assert login.status_code == 200
+    assert (
+        client.post(
+            "/api/v1/auth/login", json={"email": "owner@example.com", "password": "wrong password"}
+        ).status_code
+        == 401
+    )
+
+    service_response = client.post("/api/v1/services", headers=headers, json={"name": "billing"})
+    assert service_response.status_code == 201
+    service_id = service_response.json()["id"]
+    assert client.get("/api/v1/services").status_code == 401
+    downstream = client.post("/api/v1/services", headers=headers, json={"name": "ledger"}).json()
+    edge = client.post(
+        "/api/v1/dependencies",
+        headers=headers,
+        json={"source_id": service_id, "target_id": downstream["id"]},
+    )
+    assert edge.status_code == 201
+
+    first = client.post(
+        "/api/v1/snapshots",
+        headers=headers,
+        json={
+            "service_id": service_id,
+            "format": "json",
+            "document": '{"database":{"pool_size":20,"password":"secret-one"}}',
+        },
+    )
+    second = client.post(
+        "/api/v1/snapshots",
+        headers=headers,
+        json={
+            "service_id": service_id,
+            "format": "json",
+            "document": '{"database":{"pool_size":40,"password":"secret-two"}}',
+        },
+    )
+    assert first.status_code == second.status_code == 201
+    assert "secret-one" not in first.text
+    assert first.json()["document"]["database"]["password"] == "[REDACTED]"
+
+    diff = client.post(
+        "/api/v1/analysis-runs/simulate",
+        headers=headers,
+        json={
+            "before_snapshot_id": first.json()["id"],
+            "after_snapshot_id": second.json()["id"],
+            "context": {"max_replicas": 10, "database_max_connections": 1000},
+        },
+    )
+    assert diff.status_code == 200
+    assert "secret-one" not in diff.text and "secret-two" not in diff.text
+    assert {finding["code"] for finding in diff.json()["analysis"]["findings"]} == {
+        "sensitive-config-change",
+        "capacity-change",
+    }
+    assert diff.json()["impact"]["impacted_services"] == ["ledger"]
+    assert client.get("/api/v1/audit-events", headers=headers).json()
+
+    other = client.post(
+        "/api/v1/auth/register",
+        json={
+            "organization_name": "Other tenant",
+            "email": "other@example.com",
+            "password": "another correct horse battery",
+        },
+    )
+    other_headers = {"Authorization": f"Bearer {other.json()['access_token']}"}
+    hidden = client.get(f"/api/v1/snapshots?service_id={service_id}", headers=other_headers)
+    assert hidden.status_code == 404
+
+
+def test_protected_routes_reject_invalid_bearer_token() -> None:
+    from fastapi.testclient import TestClient
+
+    response = TestClient(app).get(
+        "/api/v1/services", headers={"Authorization": "Bearer invalid-token"}
+    )
+    assert response.status_code == 401
+
+
+def test_tenant_saved_dependency_graph_can_be_traversed() -> None:
+    client = TestClient(app)
+    registration = client.post(
+        "/api/v1/auth/register",
+        json={
+            "organization_name": "Graph tenant",
+            "email": "graph@example.com",
+            "password": "graph workspace password",
+        },
+    )
+    headers = {"Authorization": f"Bearer {registration.json()['access_token']}"}
+    api_service = client.post("/api/v1/services", headers=headers, json={"name": "api"}).json()
+    db_service = client.post("/api/v1/services", headers=headers, json={"name": "database"}).json()
+    edge = client.post(
+        "/api/v1/dependencies",
+        headers=headers,
+        json={"source_id": api_service["id"], "target_id": db_service["id"]},
+    )
+    assert edge.status_code == 201
+    assert len(client.get("/api/v1/dependencies", headers=headers).json()) == 1
+    impact = client.post(
+        "/api/v1/impact/workspace",
+        headers=headers,
+        json={"changed_services": [api_service["id"]]},
+    )
+    assert impact.status_code == 200
+    assert impact.json()["paths"] == [{"service": "database", "path": ["api", "database"]}]
+
+
+def test_readiness_request_id_and_metrics_endpoint() -> None:
+    from fastapi.testclient import TestClient
+
+    client = TestClient(app)
+    ready = client.get("/health/ready")
+    assert ready.status_code == 200
+    assert ready.headers.get("x-request-id")
+    metrics = client.get("/metrics")
+    assert metrics.status_code == 200
+    assert "causora_http_requests_total" in metrics.text
+
+
+def test_database_budget_rule_explains_excess_and_safe_options() -> None:
+    response = client.post(
+        "/api/v1/analyses",
+        json={
+            "changes": [
+                {"service": "checkout", "key": "max_replicas", "before": 10, "after": 30},
+                {"service": "checkout", "key": "database.pool_size", "before": 20, "after": 50},
+            ],
+            "context": {"database_max_connections": 1000, "database_safety_margin": 0.1},
+        },
+    )
+    assert response.status_code == 200
+    finding = next(
+        item
+        for item in response.json()["findings"]
+        if item["code"] == "database-connection-budget-exceeded"
+    )
+    assert finding["severity"] == "high"
+    assert "1500" in " ".join(finding["evidence"])
+    assert len(finding["remediation_options"]) == 3
+    assert all(option["requires_approval"] for option in finding["remediation_options"])
+
+
+def test_non_finite_capacity_context_does_not_create_numeric_risk() -> None:
+    response = client.post(
+        "/api/v1/analyses",
+        json={
+            "changes": [{"service": "api", "key": "pool_size", "before": 10, "after": 50}],
+            "context": {"max_replicas": 20, "database_max_connections": "NaN"},
+        },
+    )
+    codes = {finding["code"] for finding in response.json()["findings"]}
+    assert "database-connection-budget-exceeded" not in codes

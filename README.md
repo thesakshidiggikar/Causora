@@ -1,54 +1,81 @@
 # Causora
 
-Causora is an explainable platform foundation for reviewing configuration changes and identifying plausible operational risks before rollout. The repository currently contains a stateless API, bounded YAML/JSON diff ingestion, and deterministic starter rules; it is an MVP foundation, not yet a production failure prediction system.
+Causora is an explainable configuration change impact platform. The current MVP includes a versioned FastAPI API, React dashboard, tenant-scoped PostgreSQL/SQLite persistence, organization registration and login, configuration snapshots with secret-value fingerprinting, saved analysis runs, audit events, YAML/JSON diffs, and bounded dependency-path analysis.
 
-## Quick start
+It does not claim calibrated failure probabilities or autonomous production remediation.
 
-Requirements: Python 3.12+ (3.11+ supported) and Docker Compose (optional).
+## Run locally
+
+### Docker Compose
+
+Requires Docker Desktop with Compose.
+
+```powershell
+docker compose up --build
+```
+
+This starts PostgreSQL, applies Alembic migrations, then runs the API and dashboard. The default database password is for local development only. For a shared environment, create a local `.env` with unique values. Use URL-safe hex strings for `POSTGRES_PASSWORD`, `CAUSORA_JWT_SECRET`, and `CAUSORA_REDACTION_SECRET`.
+
+Open the dashboard at http://localhost:5173 and API docs at http://localhost:8000/docs. Create an organization from the dashboard; no AWS account or cloud credentials are needed.
+
+### SQLite and separate processes
+
+Terminal 1:
 
 ```powershell
 cd backend
 python -m venv .venv
 . .venv/Scripts/Activate.ps1
 pip install -e ".[dev]"
+alembic -c alembic.ini upgrade head
 uvicorn app.main:app --reload
 ```
 
-Open http://localhost:8000/docs. Or run `docker compose up --build` from the repository root.
+Terminal 2:
 
-```http
-POST /api/v1/analyses
-Content-Type: application/json
-
-{"changes":[{"service":"billing","key":"DB_POOL_SIZE","before":20,"after":60}]}
+```powershell
+cd frontend
+npm ci
+npm run dev
 ```
 
-The response includes rule findings, evidence, affected services, recommendations, assumptions, and severity. The dashboard can also compare YAML or JSON documents at `/api/v1/config-diffs`; nested changes are flattened to stable key paths and secret-like values are redacted from returned diffs. `/api/v1/impact` traces downstream reachability through a caller-supplied service dependency graph. The analyzer does not claim probabilistic failure prediction.
+SQLite is the default for this local path. Set `CAUSORA_DATABASE_URL` to use PostgreSQL.
 
-## Security and credentials
+## Workspace workflow
 
-No AWS credentials or live cloud integrations are required. Keep `.env` local and out of Git. Production AWS access should use workload identity/IAM roles and a managed secret store; never paste keys into source. `.env.example` contains names and guidance only.
+1. Register an organization and owner account in the dashboard. Passwords are hashed with Argon2id; the API returns a short-lived bearer token.
+2. Add a service and submit before/after YAML or JSON snapshots.
+3. Secret-like values are stored as keyed HMAC fingerprints; raw values are not persisted. Compare saved revisions to create an immutable analysis-run record.
+4. Review the tenant audit trail. Dependency edges can be persisted with `POST /api/v1/dependencies`; the `/api/v1/impact` endpoint also supports one-off operator-supplied graphs.
 
-## Architecture
+The API also retains stateless endpoints `POST /api/v1/analyses` and `POST /api/v1/config-diffs` for local experiments.
 
-- `backend/app/api`: versioned HTTP boundary
-- `backend/app/services`: deterministic analysis and typed contracts
-- `backend/app/core`: centralized runtime settings
-- `frontend`: operator dashboard MVP for submitting and reviewing a local analysis
-- `docker-compose.yml`: local API and dashboard services
-- `docs`: architecture and delivery notes
+## Configuration and secrets
 
-The initial analyzer is stateless and deterministic. Persistence, tenant auth, graph ingestion, telemetry, and calibrated prediction need separate design and threat modeling before production use.
+- `CAUSORA_DATABASE_URL`: database URL; local default is SQLite, Compose supplies PostgreSQL.
+- `CAUSORA_JWT_SECRET`: signing key for bearer tokens.
+- `CAUSORA_REDACTION_SECRET`: separate HMAC key used to fingerprint secret-like configuration values.
+- `CAUSORA_ALLOWED_ORIGINS`: comma-separated dashboard origins.
+- `POSTGRES_PASSWORD`: Compose database password.
 
-## Development
+`.env.example` documents these variables without real secrets. Never commit `.env`. Production must use unique managed secrets, TLS, managed PostgreSQL, workload identity for any future AWS connector, and a secret manager. Secret detection is key-name based and cannot identify every credential; limit access to stored configuration snapshots accordingly.
+
+## Development checks
 
 ```powershell
 cd backend
-pip install -e ".[dev]"
 ruff check .
 ruff format --check .
 mypy app
 pytest
+alembic -c alembic.ini upgrade head
 ```
 
-See [architecture overview](docs/architecture/overview.md) and [roadmap](docs/roadmap.md).
+```powershell
+cd frontend
+npm ci
+npm run build
+npm audit
+```
+
+See [architecture](docs/architecture/overview.md) and [roadmap](docs/roadmap.md).

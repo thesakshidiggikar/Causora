@@ -14,9 +14,15 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e '.[dev]'
+      - run: alembic -c alembic.ini upgrade head
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy app
+      - run: bandit -r app
+      - run: python -m venv /tmp/causora-audit
+      - run: /tmp/causora-audit/bin/python -m pip install --upgrade pip
+      - run: /tmp/causora-audit/bin/python -m pip install . pip-audit
+      - run: /tmp/causora-audit/bin/pip-audit --skip-editable
       - run: pytest
   frontend:
     runs-on: ubuntu-latest
@@ -29,6 +35,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: frontend/package.json
+          cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: npm audit
