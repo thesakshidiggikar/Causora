@@ -13,7 +13,15 @@ class AnalysisService:
             key = change.key.lower()
             is_sensitive = any(
                 token in key
-                for token in ("password", "secret", "token", "credential", "private_key", "api_key")
+                for token in (
+                    "password",
+                    "secret",
+                    "token",
+                    "credential",
+                    "private_key",
+                    "api_key",
+                    "access_key",
+                )
             )
             before = "[REDACTED]" if is_sensitive else repr(change.before)
             after = "[REDACTED]" if is_sensitive else repr(change.after)
@@ -33,7 +41,8 @@ class AnalysisService:
                     )
                 )
             if any(
-                token in key for token in ("replica", "max_replicas", "pool_size", "connections")
+                token in key
+                for token in ("replica", "max_replicas", "pool_size", "connections", ".size")
             ):
                 findings.append(
                     Finding(

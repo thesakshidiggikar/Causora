@@ -1,7 +1,8 @@
 # Delivery roadmap
 
-- Foundation: conventions, typed API, local run path, health checks, CI, deterministic starter analyzer.
-- Ingestion: validated YAML/JSON and environment manifest parsing, safe redaction, immutable snapshots.
+- Foundation: conventions, typed API, local run path, health checks, CI, deterministic starter analyzer. (implemented)
+- Ingestion: bounded YAML/JSON parsing, nested-key diff, safe secret redaction. (initial slice implemented)
+- Next: environment manifest parsing, immutable snapshots, provenance, and persistence.
 - Schema: configuration contracts, provenance, versioned storage and migrations.
 - Graph: services, resources, config references, dependency edges and confidence.
 - Discovery: manifest and repository import with explicit trust boundaries.
