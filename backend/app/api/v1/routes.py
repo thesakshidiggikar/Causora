@@ -8,6 +8,7 @@ from app.services.config_diff import (
     parse_document,
     stable_value,
 )
+from app.services.impact import ImpactRequest, ImpactResponse, impact_analysis_service
 from app.services.schemas import AnalysisRequest, AnalysisResponse, ConfigChange, Severity
 
 router = APIRouter()
@@ -73,3 +74,12 @@ def configuration_diff(request: ConfigDiffRequest) -> ConfigDiffResponse:
     return ConfigDiffResponse(
         changes=public_changes, analysis=analysis_service.analyze(analysis_request)
     )
+
+
+@router.post(
+    "/impact",
+    response_model=ImpactResponse,
+    summary="Find downstream services reachable from changes",
+)
+def analyze_impact(request: ImpactRequest) -> ImpactResponse:
+    return impact_analysis_service.analyze(request)

@@ -1,7 +1,7 @@
 # Architecture overview
 
 ## Current slice
-A versioned FastAPI API accepts operator-supplied changes or bounded YAML/JSON documents, validates them with Pydantic, safely parses YAML, flattens nested keys, and invokes deterministic rules. Findings include evidence and recommendations. Secret-like values are redacted in both evidence and returned diffs. The API performs no network calls and stores no customer data.
+A versioned FastAPI API accepts operator-supplied changes or bounded YAML/JSON documents, validates them with Pydantic, safely parses YAML, flattens nested keys, and invokes deterministic rules. Findings include evidence and recommendations. Secret-like values are redacted in both evidence and returned diffs. A separate bounded breadth-first traversal traces shortest downstream paths through an operator-supplied graph and reports that reachability is not a failure prediction. The API performs no network calls and stores no customer data.
 
 ## Intended evolution
 1. Persist organizations, systems, services, configuration snapshots, and analysis runs in PostgreSQL through SQLAlchemy and Alembic.
